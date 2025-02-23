@@ -10,7 +10,7 @@ $allowed_time = $max_execution_time - $buffer_time;
 $start_time = microtime(true);
 
 $page = (int) get_option('my_product_import_page', 1);
-$per_page = 20;
+$per_page = 100;
 $api_url = "http://109.122.229.114:5000/api/products?page={$page}&per_page={$per_page}";
 
 // دریافت داده‌ها از API
