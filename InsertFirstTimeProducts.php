@@ -123,7 +123,7 @@ $allowed_time = $max_execution_time - $buffer_time;
 $start_time = microtime(true);
 
 // خواندن صفحه فعلی از فایل
-$page_file = '../my_product_import_page.txt';
+$page_file = 'my_product_import_page.txt';
 if (file_exists($page_file)) {
     $page = (int) file_get_contents($page_file);
 } else {
