@@ -98,4 +98,5 @@ foreach ($data['products'] as $article) {
 // به صفحه بعدی برویم
 $page++;
 update_option('my_product_import_page', $page);
+echo "پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
 
