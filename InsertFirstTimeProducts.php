@@ -1,5 +1,4 @@
 <?php
-die;
 $db_host = 'localhost'; // آدرس پایگاه داده
 $db_name = 'axijrtzi_holooclient'; // نام پایگاه داده
 $db_user = 'axijrtzi_holooclient'; // نام کاربری پایگاه داده
@@ -19,15 +18,18 @@ $allowed_time = $max_execution_time - $buffer_time;
 $start_time = microtime(true);
 
 $page_file = __DIR__ . '/my_product_import_page.txt';
+
+// اگر فایل صفحه وجود داشته باشد، شماره صفحه را خوانده می‌کنیم
 if (file_exists($page_file)) {
     $content = file_get_contents($page_file);
     $page = filter_var($content, FILTER_VALIDATE_INT, ["options" => ["default" => 1, "min_range" => 1]]);
 } else {
     $page = 1;
 }
+
 $per_page = 100;
 
-// URL API برای دریافت محصولات
+// URL API برای دریافت اولین صفحه
 $api_url = "http://109.122.229.114:5000/api/products?page={$page}&per_page={$per_page}";
 
 // دریافت داده‌ها از API
@@ -43,12 +45,23 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-if (!isset($data['products']) || empty($data['products'])) {
-    unlink($page_file); // حذف فایل صفحه در صورت اتمام پردازش
+if (!isset($data['pagination']) || !isset($data['products'])) {
+    error_log("❌ ساختار API نادرست است!");
+    exit;
+}
+
+// استخراج اطلاعات pagination
+$current_page = $data['pagination']['current_page'];
+$total_pages = $data['pagination']['total_pages'];
+
+// اگر تمام صفحات پردازش شده باشند
+if ($current_page > $total_pages) {
+    unlink($page_file); // حذف فایل صفحه
     echo "✅ همه محصولات وارد شدند!";
     exit;
 }
 
+// پردازش محصولات صفحه فعلی
 foreach ($data['products'] as $article) {
     $fldId = $article['A_Code'];
     $fldC_Kala = $article['A_Code_C'];
@@ -82,7 +95,6 @@ foreach ($data['products'] as $article) {
                 '_fldC_Kala' => $fldC_Kala,
                 '_visibility' => 'visible',
             ];
-
             foreach ($meta_data as $meta_key => $meta_value) {
                 $pdo->prepare("INSERT INTO wp_postmeta (post_id, meta_key, meta_value) VALUES (:post_id, :meta_key, :meta_value)")
                     ->execute([':post_id' => $product_id, ':meta_key' => $meta_key, ':meta_value' => $meta_value]);
@@ -101,7 +113,6 @@ foreach ($data['products'] as $article) {
             if (!$main_category_id) {
                 $pdo->prepare("INSERT INTO wp_terms (name, slug) VALUES (:name, :slug)")
                     ->execute([':name' => $main_category_name, ':slug' => $main_category_slug]);
-
                 $main_category_id = $pdo->lastInsertId();
                 $pdo->prepare("INSERT INTO wp_term_taxonomy (term_id, taxonomy, parent) VALUES (:term_id, 'product_cat', 0)")
                     ->execute([':term_id' => $main_category_id]);
@@ -117,7 +128,6 @@ foreach ($data['products'] as $article) {
                 if (!$sub_category_id) {
                     $pdo->prepare("INSERT INTO wp_terms (name, slug) VALUES (:name, :slug)")
                         ->execute([':name' => $sub_category_name, ':slug' => $sub_category_slug]);
-
                     $sub_category_id = $pdo->lastInsertId();
                     $pdo->prepare("INSERT INTO wp_term_taxonomy (term_id, taxonomy, parent) VALUES (:term_id, 'product_cat', :parent)")
                         ->execute([':term_id' => $sub_category_id, ':parent' => $main_category_id]);
@@ -145,8 +155,3 @@ foreach ($data['products'] as $article) {
 $page++;
 file_put_contents($page_file, $page);
 echo "پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
-
-
-
-
-// /usr/local/bin/php /home3/axijrtzi/holoo-client.webcomcoai.com/holoo/InsertFirstTimeProducts.php >> /home3/axijrtzi/holoo-client.webcomcoai.com/cron.log 2>&1
