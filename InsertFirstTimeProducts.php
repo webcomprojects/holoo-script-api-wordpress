@@ -129,7 +129,7 @@ if (file_exists($page_file)) {
 } else {
     $page = 1;
 }
-$per_page = 100;
+$per_page = 300;
 
 // URL API برای دریافت محصولات
 $api_url = "http://109.122.229.114:5000/api/products?page={$page}&per_page={$per_page}";
