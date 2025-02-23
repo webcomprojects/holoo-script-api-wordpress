@@ -18,10 +18,10 @@ $buffer_time = 5;
 $allowed_time = $max_execution_time - $buffer_time;
 $start_time = microtime(true);
 
-// خواندن صفحه فعلی از فایل
-$page_file = 'my_product_import_page.txt';
+$page_file = __DIR__ . '/my_product_import_page.txt';
 if (file_exists($page_file)) {
-    $page = (int) file_get_contents($page_file);
+    $content = file_get_contents($page_file);
+    $page = filter_var($content, FILTER_VALIDATE_INT, ["options" => ["default" => 1, "min_range" => 1]]);
 } else {
     $page = 1;
 }
@@ -145,3 +145,8 @@ foreach ($data['products'] as $article) {
 $page++;
 file_put_contents($page_file, $page);
 echo "پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
+
+
+
+
+// /usr/local/bin/php /home3/axijrtzi/holoo-client.webcomcoai.com/holoo/InsertFirstTimeProducts.php >> /home3/axijrtzi/holoo-client.webcomcoai.com/cron.log 2>&1
