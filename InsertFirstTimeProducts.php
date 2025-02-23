@@ -100,42 +100,39 @@
 // update_option('my_product_import_page', $page);
 // echo "پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
 
-// تنظیمات اتصال به پایگاه داده (تنظیمات مربوطه را جایگزین کنید)
-$host     = 'localhost';
-$dbname   = 'axijrtzi_holooclient';
-$user     = 'axijrtzi_holooclient';
-$password = 'S+BkYe*oU;MK';
+
+
+
+
+$db_host = 'localhost'; // آدرس پایگاه داده
+$db_name = 'axijrtzi_holooclient'; // نام پایگاه داده
+$db_user = 'axijrtzi_holooclient'; // نام کاربری پایگاه داده
+$db_pass = 'S+BkYe*oU;MK'; // رمز عبور پایگاه داده
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $user, $password);
+    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
-    die("اتصال به پایگاه داده با خطا مواجه شد: " . $e->getMessage());
-}
-
-// تابع ساده برای تولید slug از عنوان (مشابه sanitize_title در وردپرس)
-function sanitize_title($title) {
-    $title = strtolower(trim($title));
-    $title = preg_replace('/[^a-z0-9-]+/', '-', $title);
-    return trim($title, '-');
+    die("❌ خطای اتصال به پایگاه داده: " . $e->getMessage());
 }
 
 // تنظیمات اجرای اسکریپت
 $max_execution_time = 30; // ثانیه
-$buffer_time        = 5;
-$allowed_time       = $max_execution_time - $buffer_time;
-$start_time         = microtime(true);
+$buffer_time = 5;
+$allowed_time = $max_execution_time - $buffer_time;
+$start_time = microtime(true);
 
-// ذخیره مقدار صفحه در یک فایل (برای شبیه‌سازی get_option/update_option)
-$option_file = 'import_page.txt';
-if (file_exists($option_file)) {
-    $page = (int) file_get_contents($option_file);
+// خواندن صفحه فعلی از فایل
+$page_file = '../my_product_import_page.txt';
+if (file_exists($page_file)) {
+    $page = (int) file_get_contents($page_file);
 } else {
     $page = 1;
 }
-
 $per_page = 100;
-$api_url  = "http://109.122.229.114:5000/api/products?page={$page}&per_page={$per_page}";
+
+// URL API برای دریافت محصولات
+$api_url = "http://109.122.229.114:5000/api/products?page={$page}&per_page={$per_page}";
 
 // دریافت داده‌ها از API
 $response = file_get_contents($api_url);
@@ -151,88 +148,98 @@ if (json_last_error() !== JSON_ERROR_NONE) {
 }
 
 if (!isset($data['products']) || empty($data['products'])) {
-    if (file_exists($option_file)) {
-        unlink($option_file); // حذف فایل تنظیمات در صورت اتمام پردازش
-    }
+    unlink($page_file); // حذف فایل صفحه در صورت اتمام پردازش
     echo "✅ همه محصولات وارد شدند!";
     exit;
 }
 
 foreach ($data['products'] as $article) {
-    // استخراج اطلاعات محصول
-    $fldId     = $article['A_Code'];
+    $fldId = $article['A_Code'];
     $fldC_Kala = $article['A_Code_C'];
-    $title     = $article['A_Name'];
-    $price     = !empty($article['Sel_Price']) ? $article['Sel_Price'] : 0;
-    $offPrice  = (!empty($article['PriceTakhfif']) && $article['PriceTakhfif'] > 0) ? $article['PriceTakhfif'] : $price;
-    $stock     = !empty($article['Exist']) ? $article['Exist'] : 0;
-    $status    = ($article['IsActive']) ? 'publish' : 'draft';
+    $title = $article['A_Name'];
+    $price = $article['Sel_Price'] ?: 0;
+    $offPrice = ($article['PriceTakhfif'] > 0) ? $article['PriceTakhfif'] : $price;
+    $stock = $article['Exist'] ?: 0;
+    $status = ($article['IsActive']) ? 'publish' : 'draft';
 
-    // بررسی وجود محصول در پایگاه داده (با مقایسه عنوان)
-    $stmt = $pdo->prepare("SELECT id FROM products WHERE title = ? LIMIT 1");
-    $stmt->execute([$title]);
+    // بررسی وجود محصول در پایگاه داده
+    $stmt = $pdo->prepare("SELECT ID FROM wp_posts WHERE post_type = 'product' AND post_title = :title LIMIT 1");
+    $stmt->execute([':title' => $title]);
     $existing_product = $stmt->fetchColumn();
 
     if (!$existing_product) {
         // ایجاد محصول جدید
-        $stmt = $pdo->prepare("INSERT INTO products (title, content, status, type, author) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$title, '', $status, 'product', 1]);
+        $insert_stmt = $pdo->prepare("
+            INSERT INTO wp_posts (post_title, post_content, post_status, post_type, post_author, post_date, post_date_gmt)
+            VALUES (:title, '', :status, 'product', 1, NOW(), NOW())
+        ");
+        $insert_stmt->execute([':title' => $title, ':status' => $status]);
         $product_id = $pdo->lastInsertId();
 
-        // ذخیره متادیتای محصول
-        $meta = [
-            '_regular_price' => $price,
-            '_sale_price'    => $offPrice,
-            '_stock'         => $stock,
-            '_A_Code'        => $fldId,
-            '_fldC_Kala'     => $fldC_Kala,
-            '_visibility'    => 'visible'
-        ];
+        if ($product_id) {
+            // ذخیره متا داده‌ها
+            $meta_data = [
+                '_regular_price' => $price,
+                '_sale_price' => $offPrice,
+                '_stock' => $stock,
+                '_A_Code' => $fldId,
+                '_fldC_Kala' => $fldC_Kala,
+                '_visibility' => 'visible',
+            ];
 
-        foreach ($meta as $key => $value) {
-            $stmt = $pdo->prepare("INSERT INTO product_meta (product_id, meta_key, meta_value) VALUES (?, ?, ?)");
-            $stmt->execute([$product_id, $key, $value]);
-        }
-
-        // افزودن دسته‌بندی‌ها
-        $main_category_name = isset($article['Main_Category']['M_groupname']) ? $article['Main_Category']['M_groupname'] : 'دسته‌بندی نامشخص';
-        $sub_category_name  = isset($article['Sub_Category']['S_groupname']) ? $article['Sub_Category']['S_groupname'] : null;
-
-        // پردازش دسته‌بندی اصلی
-        $stmt = $pdo->prepare("SELECT id FROM product_categories WHERE name = ?");
-        $stmt->execute([$main_category_name]);
-        $main_category_id = $stmt->fetchColumn();
-        if (!$main_category_id) {
-            $main_slug = sanitize_title($main_category_name);
-            $stmt = $pdo->prepare("INSERT INTO product_categories (name, slug, parent_id) VALUES (?, ?, ?)");
-            $stmt->execute([$main_category_name, $main_slug, 0]);
-            $main_category_id = $pdo->lastInsertId();
-        }
-
-        // پردازش دسته‌بندی فرعی (در صورت وجود)
-        if ($sub_category_name) {
-            $stmt = $pdo->prepare("SELECT id FROM product_categories WHERE name = ?");
-            $stmt->execute([$sub_category_name]);
-            $sub_category_id = $stmt->fetchColumn();
-            if (!$sub_category_id) {
-                $sub_slug = sanitize_title($sub_category_name);
-                $stmt = $pdo->prepare("INSERT INTO product_categories (name, slug, parent_id) VALUES (?, ?, ?)");
-                $stmt->execute([$sub_category_name, $sub_slug, $main_category_id]);
-                $sub_category_id = $pdo->lastInsertId();
+            foreach ($meta_data as $meta_key => $meta_value) {
+                $pdo->prepare("INSERT INTO wp_postmeta (post_id, meta_key, meta_value) VALUES (:post_id, :meta_key, :meta_value)")
+                    ->execute([':post_id' => $product_id, ':meta_key' => $meta_key, ':meta_value' => $meta_value]);
             }
-            // ارتباط محصول با هر دو دسته (اصلی و فرعی)
-            $stmt = $pdo->prepare("INSERT INTO product_category_relationships (product_id, category_id) VALUES (?, ?), (?, ?)");
-            $stmt->execute([$product_id, $main_category_id, $product_id, $sub_category_id]);
-        } else {
-            // ارتباط محصول تنها با دسته‌بندی اصلی
-            $stmt = $pdo->prepare("INSERT INTO product_category_relationships (product_id, category_id) VALUES (?, ?)");
-            $stmt->execute([$product_id, $main_category_id]);
+
+            // **افزودن دسته‌بندی‌ها**
+            $main_category_name = $article['Main_Category']['M_groupname'] ?? 'دسته‌بندی نامشخص';
+            $sub_category_name = $article['Sub_Category']['S_groupname'] ?? null;
+
+            // اضافه کردن دسته‌بندی اصلی
+            $main_category_slug = strtolower(str_replace(' ', '-', $main_category_name));
+            $main_category_stmt = $pdo->prepare("SELECT term_id FROM wp_terms WHERE name = :name");
+            $main_category_stmt->execute([':name' => $main_category_name]);
+            $main_category_id = $main_category_stmt->fetchColumn();
+
+            if (!$main_category_id) {
+                $pdo->prepare("INSERT INTO wp_terms (name, slug) VALUES (:name, :slug)")
+                    ->execute([':name' => $main_category_name, ':slug' => $main_category_slug]);
+
+                $main_category_id = $pdo->lastInsertId();
+                $pdo->prepare("INSERT INTO wp_term_taxonomy (term_id, taxonomy, parent) VALUES (:term_id, 'product_cat', 0)")
+                    ->execute([':term_id' => $main_category_id]);
+            }
+
+            // اضافه کردن دسته‌بندی فرعی
+            if ($sub_category_name) {
+                $sub_category_slug = strtolower(str_replace(' ', '-', $sub_category_name));
+                $sub_category_stmt = $pdo->prepare("SELECT term_id FROM wp_terms WHERE name = :name");
+                $sub_category_stmt->execute([':name' => $sub_category_name]);
+                $sub_category_id = $sub_category_stmt->fetchColumn();
+
+                if (!$sub_category_id) {
+                    $pdo->prepare("INSERT INTO wp_terms (name, slug) VALUES (:name, :slug)")
+                        ->execute([':name' => $sub_category_name, ':slug' => $sub_category_slug]);
+
+                    $sub_category_id = $pdo->lastInsertId();
+                    $pdo->prepare("INSERT INTO wp_term_taxonomy (term_id, taxonomy, parent) VALUES (:term_id, 'product_cat', :parent)")
+                        ->execute([':term_id' => $sub_category_id, ':parent' => $main_category_id]);
+                }
+
+                // اضافه کردن دسته‌بندی‌ها به محصول
+                $pdo->prepare("INSERT INTO wp_term_relationships (object_id, term_taxonomy_id) VALUES (:object_id, :term_taxonomy_id)")
+                    ->execute([':object_id' => $product_id, ':term_taxonomy_id' => $sub_category_id]);
+            } else {
+                $pdo->prepare("INSERT INTO wp_term_relationships (object_id, term_taxonomy_id) VALUES (:object_id, :term_taxonomy_id)")
+                    ->execute([':object_id' => $product_id, ':term_taxonomy_id' => $main_category_id]);
+            }
         }
     }
 
-    // بررسی زمان سپری شده جهت جلوگیری از اتمام زمان اجرا
+    // بررسی زمان سپری شده
     if ((microtime(true) - $start_time) >= $allowed_time) {
-        file_put_contents($option_file, $page);
+        file_put_contents($page_file, $page);
         echo "⏳ زمان اجرا تمام شد. پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
         exit;
     }
@@ -240,5 +247,5 @@ foreach ($data['products'] as $article) {
 
 // به صفحه بعدی برویم
 $page++;
-file_put_contents($option_file, $page);
+file_put_contents($page_file, $page);
 echo "پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
