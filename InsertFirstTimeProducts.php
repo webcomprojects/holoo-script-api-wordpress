@@ -102,9 +102,9 @@
 
 // تنظیمات اتصال به پایگاه داده (تنظیمات مربوطه را جایگزین کنید)
 $host     = 'localhost';
-$dbname   = 'your_database';
-$user     = 'your_username';
-$password = 'your_password';
+$dbname   = 'axijrtzi_holooclient';
+$user     = 'axijrtzi_holooclient';
+$password = 'S+BkYe*oU;MK';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $user, $password);
