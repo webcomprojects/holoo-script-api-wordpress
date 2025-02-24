@@ -1,8 +1,7 @@
 <?php
-$db_host = 'localhost'; // آدرس پایگاه داده
-$db_name = 'axijrtzi_holooclient'; // نام پایگاه داده
-$db_user = 'axijrtzi_holooclient'; // نام کاربری پایگاه داده
-$db_pass = 'S+BkYe*oU;MK'; // رمز عبور پایگاه داده
+
+require_once 'constant.php';
+require_once 'db.php';
 
 try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
@@ -30,7 +29,7 @@ if (file_exists($page_file)) {
 $per_page = 100;
 
 // URL API برای دریافت اولین صفحه
-$api_url = "http://109.122.229.114:5000/api/products?page={$page}&per_page={$per_page}";
+$api_url =  BASE_URL . "products?page={$page}&per_page={$per_page}";
 
 // دریافت داده‌ها از API
 $response = file_get_contents($api_url);

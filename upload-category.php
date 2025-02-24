@@ -12,7 +12,7 @@ $start_time = microtime(true);
 $import_offset = (int) get_option('my_category_import_offset', 0);
 
 // دریافت داده‌ها از API
-$api_url = 'http://109.122.229.114:5000/api/categories';
+$api_url = BASE_URL . 'categories';
 $response = file_get_contents($api_url);
 $data = json_decode($response, true);
 
