@@ -1,3 +1,3 @@
 <?php
 
-define('BASE_URL', "http://109.122.229.114:5000/api/");
+define('BASE_URL', "http://2.187.99.27:5000/api/");
