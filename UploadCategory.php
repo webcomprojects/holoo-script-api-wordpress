@@ -41,9 +41,9 @@ function delete_option_from_db($pdo, $option_name) {
 
 // تابع برای بررسی وجود یک دسته‌بندی
 function term_exists_in_db($pdo, $name, $taxonomy = 'product_cat') {
-    $stmt = $pdo->prepare("SELECT term_id FROM wp_terms 
+    $stmt = $pdo->prepare("SELECT wp_term_taxonomy.term_id FROM wp_terms 
                            INNER JOIN wp_term_taxonomy ON wp_terms.term_id = wp_term_taxonomy.term_id 
-                           WHERE name = :name AND taxonomy = :taxonomy");
+                           WHERE wp_terms.name = :name AND wp_term_taxonomy.taxonomy = :taxonomy");
     $stmt->execute([':name' => $name, ':taxonomy' => $taxonomy]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
