@@ -9,7 +9,7 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // دریافت داده‌ها از API با استفاده از file_get_contents
-    $api_url = BASE_URL . 'api/updated/products';
+    $api_url = BASE_URL . 'updated/products';
     $context = stream_context_create([
         'http' => [
             'method' => 'GET',
