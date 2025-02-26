@@ -1,7 +1,7 @@
 <?php
 require_once 'constant.php';
 require_once 'db.php';
-
+$table_prefix = 'wp_';
 // تنظیمات زمان اجرا
 $max_execution_time = 30;
 $buffer_time = 5;
