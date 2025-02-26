@@ -1,6 +1,5 @@
 <?php
 
-die;
 require_once('../wp-config.php');
 global $wpdb;
 
