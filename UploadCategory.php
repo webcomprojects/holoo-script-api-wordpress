@@ -1,7 +1,6 @@
 <?php
 
-echo $_SERVER['DOCUMENT_ROOT'] . '/wp-config.php';
-require_once($_SERVER['DOCUMENT_ROOT'] . '/wp-config.php');
+require_once '../wp-config.php';
 global $wpdb;
 
 // تنظیمات زمان اجرا
