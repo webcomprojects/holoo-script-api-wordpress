@@ -1,5 +1,5 @@
 <?php
-die;
+// die;
 require_once('../wp-config.php');
 global $wpdb;
 // تنظیمات زمان اجرا
