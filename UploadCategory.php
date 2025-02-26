@@ -27,7 +27,7 @@ function get_option_pdo($pdo, $option_name, $default = 0) {
 $import_offset = get_option_pdo($pdo, 'my_category_import_offset', 0);
 
 // دریافت داده‌ها از API
-$api_url = 'BASE_URL' . 'categories'; // جایگزینی BASE_URL با آدرس واقعی
+$api_url = BASE_URL . 'categories';
 $response = file_get_contents($api_url);
 $data = json_decode($response, true);
 
