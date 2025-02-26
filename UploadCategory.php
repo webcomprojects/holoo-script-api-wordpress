@@ -1,80 +1,41 @@
 <?php
-
 require_once 'constant.php';
 require_once 'db.php';
+
+// تنظیمات زمان اجرا
+$max_execution_time = 30;
+$buffer_time = 5;
+$allowed_time = $max_execution_time - $buffer_time;
+$start_time = microtime(true);
+
 
 try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
-    die('خطا در اتصال به پایگاه داده: ' . $e->getMessage());
+    die("❌ خطای اتصال به پایگاه داده: " . $e->getMessage());
 }
 
-// تنظیمات زمان اجرا
-$max_execution_time = 30; // حداکثر زمان اجرای اسکریپت (ثانیه)
-$buffer_time = 5;         // زمان بافر جهت جلوگیری از اتمام ناگهانی
-$allowed_time = $max_execution_time - $buffer_time;
-$start_time = microtime(true);
-
-// دریافت offset دسته‌بندی پردازش شده از قبل
-$import_offset = (int) get_option_from_db($pdo, 'my_category_import_offset', 0);
-
-// تابع برای خواندن یک گزینه از پایگاه داده
-function get_option_from_db($pdo, $option_name, $default = null) {
-    $stmt = $pdo->prepare("SELECT option_value FROM wp_options WHERE option_name = :option_name");
-    $stmt->execute([':option_name' => $option_name]);
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $result ? $result['option_value'] : $default;
+// تابع جایگزین sanitize_title
+function sanitize_slug($title)
+{
+    $slug = preg_replace('/[^a-z0-9_\s-]/', '', strtolower($title));
+    $slug = preg_replace('/[\s-]+/', ' ', $slug);
+    $slug = preg_replace('/[\s_]/', '-', $slug);
+    return $slug;
 }
 
-// تابع برای ذخیره یک گزینه در پایگاه داده
-function update_option_in_db($pdo, $option_name, $value) {
-    $stmt = $pdo->prepare("REPLACE INTO wp_options (option_name, option_value) VALUES (:option_name, :option_value)");
-    $stmt->execute([':option_name' => $option_name, ':option_value' => $value]);
-}
-
-// تابع برای حذف یک گزینه از پایگاه داده
-function delete_option_from_db($pdo, $option_name) {
-    $stmt = $pdo->prepare("DELETE FROM wp_options WHERE option_name = :option_name");
-    $stmt->execute([':option_name' => $option_name]);
-}
-
-// تابع برای بررسی وجود یک دسته‌بندی
-function term_exists_in_db($pdo, $name, $taxonomy = 'product_cat') {
-    $stmt = $pdo->prepare("SELECT wp_term_taxonomy.term_id FROM wp_terms 
-                           INNER JOIN wp_term_taxonomy ON wp_terms.term_id = wp_term_taxonomy.term_id 
-                           WHERE wp_terms.name = :name AND wp_term_taxonomy.taxonomy = :taxonomy");
-    $stmt->execute([':name' => $name, ':taxonomy' => $taxonomy]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
-}
-
-// تابع برای ایجاد یک دسته‌بندی
-function insert_term_in_db($pdo, $name, $slug, $description, $parent, $taxonomy = 'product_cat') {
-    try {
-        $pdo->beginTransaction();
-
-        // اضافه کردن دسته‌بندی به wp_terms
-        $stmt = $pdo->prepare("INSERT INTO wp_terms (name, slug) VALUES (:name, :slug)");
-        $stmt->execute([':name' => $name, ':slug' => $slug]);
-        $term_id = $pdo->lastInsertId();
-
-        // اضافه کردن دسته‌بندی به wp_term_taxonomy
-        $stmt = $pdo->prepare("INSERT INTO wp_term_taxonomy (term_id, taxonomy, description, parent) 
-                               VALUES (:term_id, :taxonomy, :description, :parent)");
-        $stmt->execute([
-            ':term_id' => $term_id,
-            ':taxonomy' => $taxonomy,
-            ':description' => $description,
-            ':parent' => $parent
-        ]);
-
-        $pdo->commit();
-        return $term_id;
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        error_log("خطا در ایجاد دسته '$name': " . $e->getMessage());
-        return false;
+// دریافت offset از دیتابیس
+$import_offset = 0;
+try {
+    $stmt = $pdo->prepare("SELECT option_value FROM {$table_prefix}options WHERE option_name = 'my_category_import_offset'");
+    $stmt->execute();
+    $result = $stmt->fetch();
+    if ($result) {
+        $import_offset = (int) $result['option_value'];
     }
+} catch (PDOException $e) {
+    die("خطا در دریافت offset: " . $e->getMessage());
 }
 
 // دریافت داده‌ها از API
@@ -86,82 +47,164 @@ if (!$data) {
     die('خطا در دریافت API یا رمزگشایی JSON');
 }
 
-// تعداد کل دسته‌بندی‌ها
 $total_items = count($data);
-
-if (!function_exists('sanitize_title')) {
-    function sanitize_title($title) {
-        $title = strip_tags($title);
-        $title = preg_replace('/&.+?;/', '', $title);
-        $title = str_replace([' ', '/', '\\', '#'], '-', $title);
-        $title = strtolower($title);
-        $title = preg_replace('/[^a-z0-9\-]/', '', $title);
-        $title = trim($title, '-');
-        return $title;
-    }
-}
 
 for ($i = $import_offset; $i < $total_items; $i++) {
     $category = $data[$i];
-
     $name = $category['M_groupname'];
-    $slug = sanitize_title($name);
+    $slug = sanitize_slug($name);
 
     // بررسی وجود دسته‌بندی
-    $existing_term = term_exists_in_db($pdo, $name, 'product_cat');
-    if ($existing_term) {
-        $term_id = $existing_term['term_id'];
-    } else {
-        // ایجاد دسته جدید
-        $term_id = insert_term_in_db(
-            $pdo,
-            $name,
-            $slug,
-            'کد دسته: ' . $category['M_groupcode'],
-            0,
-            'product_cat'
-        );
+    try {
+        $stmt = $pdo->prepare("
+            SELECT t.term_id 
+            FROM {$table_prefix}terms t
+            INNER JOIN {$table_prefix}term_taxonomy tt ON t.term_id = tt.term_id
+            WHERE t.name = ? AND tt.taxonomy = 'product_cat'
+        ");
+        $stmt->execute([$name]);
+        $existing_term = $stmt->fetch();
+
+        $term_id = $existing_term['term_id'] ?? null;
+    } catch (PDOException $e) {
+        error_log("خطا در بررسی دسته موجود: " . $e->getMessage());
+        continue;
     }
 
-    // در صورتی که دسته ایجاد یا دریافت شده باشد، زیر دسته‌ها را پردازش می‌کنیم
-    if ($term_id && !empty($category['sub_categories'])) {
-        foreach ($category['sub_categories'] as $sub) {
-            // Check if the "parent" key exists; use 0 as the default value if it doesn't
-            $parent_id = isset($sub['parent']) ? $sub['parent'] : 0;
-        
-            $sub_name = $sub['S_groupname'];
-            $sub_slug = sanitize_title($sub_name);
-        
-            // Check if the sub-category already exists
-            $child_term = term_exists_in_db($pdo, $sub_name, 'product_cat');
-            if ($child_term && $child_term['parent'] == $term_id) {
-                continue;
-            }
-        
-            // Insert the sub-category with the appropriate parent ID
-            insert_term_in_db(
-                $pdo,
-                $sub_name,
-                $sub_slug,
-                'کد زیر دسته: ' . $sub['S_groupcode'],
-                $parent_id, // Use the checked parent ID here
-                'product_cat'
-            );
+    // ایجاد دسته جدید
+    if (!$term_id) {
+        try {
+            $pdo->beginTransaction();
+
+            // درج در جدول terms
+            $stmt = $pdo->prepare("
+                INSERT INTO {$table_prefix}terms (name, slug, term_group)
+                VALUES (?, ?, 0)
+            ");
+            $stmt->execute([$name, $slug]);
+            $term_id = $pdo->lastInsertId();
+
+            // درج در جدول term_taxonomy
+            $stmt = $pdo->prepare("
+                INSERT INTO {$table_prefix}term_taxonomy 
+                (term_id, taxonomy, description, parent, count)
+                VALUES (?, 'product_cat', ?, 0, 0)
+            ");
+            $description = 'کد دسته: ' . $category['M_groupcode'];
+            $stmt->execute([$term_id, $description]);
+
+            $pdo->commit();
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            error_log("خطا در ایجاد دسته '$name': " . $e->getMessage());
+            $term_id = null;
         }
     }
 
-    // به‌روزرسانی offset پس از پردازش هر دسته‌بندی
-    update_option_in_db($pdo, 'my_category_import_offset', $i + 1);
+    // پردازش زیردسته‌ها
+    if ($term_id && !empty($category['sub_categories'])) {
+        foreach ($category['sub_categories'] as $sub) {
+            // بررسی زمان
+            if ((microtime(true) - $start_time) >= $allowed_time) {
+                update_import_offset($pdo, $table_prefix, $i);
+                echo "⏳ زمان اجرا به پایان نزدیک شد";
+                exit;
+            }
 
-    // بررسی زمان: اگر زمان سپری شده به مقدار مجاز نزدیک شد، خروج از حلقه
+            $sub_name = $sub['S_groupname'];
+            $sub_slug = sanitize_slug($sub_name);
+
+            // بررسی وجود زیردسته
+            try {
+                $stmt = $pdo->prepare("
+                    SELECT t.term_id 
+                    FROM {$table_prefix}terms t
+                    INNER JOIN {$table_prefix}term_taxonomy tt 
+                        ON t.term_id = tt.term_id
+                    WHERE t.name = ? 
+                        AND tt.taxonomy = 'product_cat'
+                        AND tt.parent = ?
+                ");
+                $stmt->execute([$sub_name, $term_id]);
+                $existing_sub = $stmt->fetch();
+
+                if ($existing_sub)
+                    continue;
+            } catch (PDOException $e) {
+                error_log("خطا در بررسی زیردسته: " . $e->getMessage());
+                continue;
+            }
+
+            // ایجاد زیردسته
+            try {
+                $pdo->beginTransaction();
+
+                // درج در terms
+                $stmt = $pdo->prepare("
+                    INSERT INTO {$table_prefix}terms 
+                    (name, slug, term_group)
+                    VALUES (?, ?, 0)
+                ");
+                $stmt->execute([$sub_name, $sub_slug]);
+                $sub_term_id = $pdo->lastInsertId();
+
+                // درج در term_taxonomy
+                $stmt = $pdo->prepare("
+                    INSERT INTO {$table_prefix}term_taxonomy 
+                    (term_id, taxonomy, description, parent, count)
+                    VALUES (?, 'product_cat', ?, ?, 0)
+                ");
+                $sub_description = 'کد زیر دسته: ' . $sub['S_groupcode'];
+                $stmt->execute([
+                    $sub_term_id,
+                    $sub_description,
+                    $term_id
+                ]);
+
+                $pdo->commit();
+            } catch (PDOException $e) {
+                $pdo->rollBack();
+                error_log("خطا در ایجاد زیردسته '$sub_name': " . $e->getMessage());
+            }
+        }
+    }
+
+    // به‌روزرسانی offset
+    update_import_offset($pdo, $table_prefix, $i + 1);
+
+    // بررسی زمان
     if ((microtime(true) - $start_time) >= $allowed_time) {
-        echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. تا دسته‌بندی شماره " . ($i + 1) . " پردازش شده است. لطفاً برای ادامه مجدد اسکریپت دوباره اجرا کنید.";
+        echo "⏳ تا دسته‌بندی شماره " . ($i + 1) . " پردازش شده";
         exit;
     }
 }
 
-// در صورت اتمام پردازش همه دسته‌بندی‌ها، offset حذف یا ریست می‌شود.
-delete_option_from_db($pdo, 'my_category_import_offset');
-echo "دسته‌بندی‌های ووکامرس با موفقیت ثبت شدند.";
+// حذف offset پس از اتمام
+try {
+    $stmt = $pdo->prepare("
+        DELETE FROM {$table_prefix}options 
+        WHERE option_name = 'my_category_import_offset'
+    ");
+    $stmt->execute();
+} catch (PDOException $e) {
+    error_log("خطا در حذف offset: " . $e->getMessage());
+}
 
+echo "دسته‌بندی‌ها با موفقیت ثبت شدند.";
 
+// تابع به‌روزرسانی offset
+function update_import_offset($pdo, $prefix, $value)
+{
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO {$prefix}options 
+            (option_name, option_value, autoload) 
+            VALUES ('my_category_import_offset', ?, 'no') 
+            ON DUPLICATE KEY UPDATE option_value = ?
+        ");
+        $stmt->execute([$value, $value]);
+    } catch (PDOException $e) {
+        error_log("خطا در به‌روزرسانی offset: " . $e->getMessage());
+    }
+}
+?>
