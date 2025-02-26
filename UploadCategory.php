@@ -1,7 +1,7 @@
 <?php
 // die;
 require_once 'constant.php';
-require_once('../wp-config.php');
+require_once(dirname(__FILE__) . '/../wp-config.php');
 global $wpdb;
 
 // تنظیمات زمان اجرا
