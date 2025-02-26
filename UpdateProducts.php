@@ -59,10 +59,7 @@ try {
                 $sub_category_id = get_or_create_term($pdo, $article['Sub_Category']['S_groupcode'], 'Sub Category');
                 set_product_categories($pdo, $product_id, [$sub_category_id], true);
             }
-        } else {
-            // اگر محصول وجود ندارد، می‌توانید آن را ایجاد کنید
-            create_new_product($pdo, $article);
-        }
+        } 
     }
 } catch (\PDOException $e) {
     error_log('Database error: ' . $e->getMessage());
@@ -89,37 +86,6 @@ function update_product_meta($pdo, $product_id, $meta_key, $meta_value) {
     }
 }
 
-/**
- * ایجاد محصول جدید
- */
-function create_new_product($pdo, $article) {
-    // ایجاد پست جدید برای محصول
-    $stmt = $pdo->prepare("INSERT INTO wp_posts (post_title, post_content, post_status, post_type) VALUES (:title, :content, :status, 'product')");
-    $stmt->execute([
-        ':title' => $article['Name'],
-        ':content' => '',
-        ':status' => $article['IsActive'] == "true" ? 'publish' : 'draft',
-    ]);
-    $product_id = $pdo->lastInsertId();
-
-    // تنظیم SKU
-    update_product_meta($pdo, $product_id, '_sku', $article['A_Code']);
-
-    // تنظیم قیمت‌ها و موجودی
-    update_product_meta($pdo, $product_id, '_regular_price', $article['Sel_Price']);
-    update_product_meta($pdo, $product_id, '_sale_price', $article['PriceTakhfif'] > 0 ? $article['PriceTakhfif'] : '');
-    update_product_meta($pdo, $product_id, '_stock', $article['Exist']);
-    update_product_meta($pdo, $product_id, '_stock_status', $article['Exist'] > 0 ? 'instock' : 'outofstock');
-
-    // تنظیم دسته‌بندی‌ها
-    $main_category_id = get_or_create_term($pdo, $article['Main_Category']['M_groupcode'], 'Main Category');
-    set_product_categories($pdo, $product_id, [$main_category_id]);
-
-    if (!empty($article['Sub_Category'])) {
-        $sub_category_id = get_or_create_term($pdo, $article['Sub_Category']['S_groupcode'], 'Sub Category');
-        set_product_categories($pdo, $product_id, [$sub_category_id], true);
-    }
-}
 
 /**
  * دریافت یا ایجاد دسته‌بندی
