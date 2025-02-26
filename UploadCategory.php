@@ -126,29 +126,25 @@ for ($i = $import_offset; $i < $total_items; $i++) {
     // در صورتی که دسته ایجاد یا دریافت شده باشد، زیر دسته‌ها را پردازش می‌کنیم
     if ($term_id && !empty($category['sub_categories'])) {
         foreach ($category['sub_categories'] as $sub) {
-            // بررسی زمان: اگر زمان مجاز به پایان نزدیک است، خروج از حلقه
-            if ((microtime(true) - $start_time) >= $allowed_time) {
-                update_option_in_db($pdo, 'my_category_import_offset', $i);
-                echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. لطفاً برای ادامه اجرای اسکریپت دوباره اجرا کنید.";
-                exit;
-            }
-
+            // Check if the "parent" key exists; use 0 as the default value if it doesn't
+            $parent_id = isset($sub['parent']) ? $sub['parent'] : 0;
+        
             $sub_name = $sub['S_groupname'];
             $sub_slug = sanitize_title($sub_name);
-
-            // بررسی وجود زیر دسته
+        
+            // Check if the sub-category already exists
             $child_term = term_exists_in_db($pdo, $sub_name, 'product_cat');
             if ($child_term && $child_term['parent'] == $term_id) {
                 continue;
             }
-
-            // ایجاد زیر دسته
+        
+            // Insert the sub-category with the appropriate parent ID
             insert_term_in_db(
                 $pdo,
                 $sub_name,
                 $sub_slug,
                 'کد زیر دسته: ' . $sub['S_groupcode'],
-                $term_id,
+                $parent_id, // Use the checked parent ID here
                 'product_cat'
             );
         }
