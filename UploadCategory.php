@@ -89,6 +89,18 @@ if (!$data) {
 // تعداد کل دسته‌بندی‌ها
 $total_items = count($data);
 
+if (!function_exists('sanitize_title')) {
+    function sanitize_title($title) {
+        $title = strip_tags($title);
+        $title = preg_replace('/&.+?;/', '', $title);
+        $title = str_replace([' ', '/', '\\', '#'], '-', $title);
+        $title = strtolower($title);
+        $title = preg_replace('/[^a-z0-9\-]/', '', $title);
+        $title = trim($title, '-');
+        return $title;
+    }
+}
+
 for ($i = $import_offset; $i < $total_items; $i++) {
     $category = $data[$i];
 
@@ -155,4 +167,5 @@ for ($i = $import_offset; $i < $total_items; $i++) {
 // در صورت اتمام پردازش همه دسته‌بندی‌ها، offset حذف یا ریست می‌شود.
 delete_option_from_db($pdo, 'my_category_import_offset');
 echo "دسته‌بندی‌های ووکامرس با موفقیت ثبت شدند.";
-?>
+
+
