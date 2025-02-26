@@ -71,6 +71,7 @@ for ($i = $import_offset; $i < $total_items; $i++) {
 // حذف offset پس از اتمام
 delete_option($pdo, 'my_category_import_offset');
 echo "✅ دسته‌بندی‌ها با موفقیت ثبت شدند";
+echo "/n";
 
 // توابع کمکی
 function get_term_id_by_name(PDO $pdo, string $term_name): ?int {

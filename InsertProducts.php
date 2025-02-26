@@ -57,6 +57,7 @@ $total_pages = $data['pagination']['total_pages'];
 if ($current_page > $total_pages) {
     unlink($page_file); // حذف فایل صفحه
     echo "✅ همه محصولات وارد شدند!";
+    echo "/n";
     exit;
 }
 
@@ -146,6 +147,7 @@ foreach ($data['products'] as $article) {
     if ((microtime(true) - $start_time) >= $allowed_time) {
         file_put_contents($page_file, $page);
         echo "⏳ زمان اجرا تمام شد. پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
+        echo "/n";
         exit;
     }
 }
@@ -154,3 +156,4 @@ foreach ($data['products'] as $article) {
 $page++;
 file_put_contents($page_file, $page);
 echo "پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
+echo "/n";
