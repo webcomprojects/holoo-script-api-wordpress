@@ -2,13 +2,16 @@
 // die;
 require_once('../wp-config.php');
 global $wpdb;
+
 // تنظیمات زمان اجرا
 $max_execution_time = 30; // حداکثر زمان اجرای اسکریپت (ثانیه)
 $buffer_time = 5; // زمان بافر جهت جلوگیری از اتمام ناگهانی
 $allowed_time = $max_execution_time - $buffer_time;
 $start_time = microtime(true);
+
 // دریافت offset دسته‌بندی پردازش شده از قبل
 $import_offset = (int) get_option('my_category_import_offset', 0);
+
 // دریافت داده‌ها از API
 $api_url = BASE_URL . 'categories';
 $response = file_get_contents($api_url);
@@ -16,17 +19,20 @@ $data = json_decode($response, true);
 if (!$data) {
     die('خطا در دریافت API یا رمزگشایی JSON');
 }
+
 // تعداد کل دسته‌بندی‌ها
 $total_items = count($data);
 for ($i = $import_offset; $i < $total_items; $i++) {
     $category = $data[$i];
     $name = $category['M_groupname'];
     $slug = sanitize_title($name);
+
     // بررسی وجود دسته‌بندی در وردپرس
     $existing_term = term_exists($name, 'product_cat');
     if ($existing_term) {
         $term_id = $existing_term['term_id'];
     } else {
+
         // ایجاد دسته جدید
         $result = wp_insert_term($name, 'product_cat', [
             'slug' => $slug,
@@ -41,6 +47,7 @@ for ($i = $import_offset; $i < $total_items; $i++) {
             $term_id = $result['term_id'];
         }
     }
+
     // در صورتی که دسته ایجاد یا دریافت شده باشد، زیر دسته‌ها را پردازش می‌کنیم
     if ($term_id && !empty($category['sub_categories'])) {
         foreach ($category['sub_categories'] as $sub) {
@@ -71,6 +78,7 @@ for ($i = $import_offset; $i < $total_items; $i++) {
             if ($exists) {
                 continue;
             }
+
             // ایجاد زیر دسته
             $sub_result = wp_insert_term($sub_name, 'product_cat', [
                 'slug' => $sub_slug,
@@ -82,8 +90,10 @@ for ($i = $import_offset; $i < $total_items; $i++) {
             }
         }
     }
+
     // به‌روزرسانی offset پس از پردازش هر دسته‌بندی
     update_option('my_category_import_offset', $i + 1);
+
     // بررسی زمان: اگر زمان سپری شده به مقدار مجاز نزدیک شد، خروج از حلقه
     if ((microtime(true) - $start_time) >= $allowed_time) {
         echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. تا دسته‌بندی شماره " . ($i + 1) . " پردازش شده است. لطفاً برای ادامه مجدد اسکریپت دوباره اجرا کنید.";
@@ -91,6 +101,7 @@ for ($i = $import_offset; $i < $total_items; $i++) {
         exit;
     }
 }
+
 // در صورت اتمام پردازش همه دسته‌بندی‌ها، offset حذف یا ریست می‌شود.
 delete_option('my_category_import_offset');
 echo "دسته‌بندی‌های ووکامرس با موفقیت ثبت شدند.";
