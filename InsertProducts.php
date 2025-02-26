@@ -1,5 +1,5 @@
 <?php
-// die;
+die;
 require_once 'constant.php';
 require_once 'db.php';
 
