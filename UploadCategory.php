@@ -64,6 +64,7 @@ for ($i = $import_offset; $i < $total_items; $i++) {
     
     if ((microtime(true) - $start_time) >= $allowed_time) {
         echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. تا دسته شماره " . ($i + 1) . " پردازش شده است.";
+        echo "/n";
         exit;
     }
 }
