@@ -86,11 +86,19 @@ function update_product_meta($pdo, $product_id, $meta_key, $meta_value) {
     }
 }
 
-function sanitize_title($title) {
-    $title = strtolower($title); // تبدیل به حروف کوچک
-    $title = preg_replace('/[^a-z0-9\s-]/', '', $title); // حذف کاراکترهای غیرمجاز
-    $title = trim(preg_replace('/[\s-]+/', '-', $title)); // جایگزینی فاصله‌ها و خط تیره‌ها با یک خط تیره
-    return $title;
+function slug_generate($title)
+{
+    if ($title === null) {
+        return '';
+    }
+    $title = mb_strtolower($title, 'UTF-8');
+    $title = preg_replace(
+        '/[^a-z0-9\x{0600}-\x{06FF}\x{06F0}-\x{06F9}\s-]/u',
+        '',
+        $title
+    );
+    $title = trim(preg_replace('/[\s-]+/u', '-', $title), '-');
+    return $title ?: '';
 }
 
 /**
@@ -99,7 +107,7 @@ function sanitize_title($title) {
 function get_or_create_term($pdo, $slug, $name) {
     // بررسی وجود دسته‌بندی
     $stmt = $pdo->prepare("SELECT term_id FROM wp_terms WHERE slug = :slug");
-    $stmt->execute([':slug' => sanitize_title($slug)]);
+    $stmt->execute([':slug' => slug_generate($slug)]);
     $term = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($term) {
@@ -107,7 +115,7 @@ function get_or_create_term($pdo, $slug, $name) {
     } else {
         // ایجاد دسته‌بندی جدید
         $stmt = $pdo->prepare("INSERT INTO wp_terms (name, slug) VALUES (:name, :slug)");
-        $stmt->execute([':name' => $name, ':slug' => sanitize_title($slug)]);
+        $stmt->execute([':name' => $name, ':slug' => slug_generate($slug)]);
         $term_id = $pdo->lastInsertId();
 
         // ایجاد رابطه دسته‌بندی

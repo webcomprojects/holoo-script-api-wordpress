@@ -1,4 +1,5 @@
 <?php
+
 // die;
 require_once 'constant.php';
 require_once 'db.php';
@@ -61,12 +62,19 @@ if ($current_page > $total_pages) {
     exit;
 }
 
-function sanitize_title($title)
+function slug_generate($title)
 {
-    $title = strtolower($title); // تبدیل به حروف کوچک
-    $title = preg_replace('/[^a-z0-9\s-]/', '', $title); // حذف کاراکترهای غیرمجاز
-    $title = trim(preg_replace('/[\s-]+/', '-', $title)); // جایگزینی فاصله‌ها و خط تیره‌ها با یک خط تیره
-    return $title;
+    if ($title === null) {
+        return '';
+    }
+    $title = mb_strtolower($title, 'UTF-8');
+    $title = preg_replace(
+        '/[^a-z0-9\x{0600}-\x{06FF}\x{06F0}-\x{06F9}\s-]/u',
+        '',
+        $title
+    );
+    $title = trim(preg_replace('/[\s-]+/u', '-', $title), '-');
+    return $title ?: '';
 }
 
 // پردازش محصولات صفحه فعلی
@@ -85,13 +93,13 @@ foreach ($data['products'] as $article) {
     $existing_product = $stmt->fetchColumn();
 
     if (!$existing_product) {
-        $slug = sanitize_title($title);
+        $slug = slug_generate($title);
         // ایجاد محصول جدید
         $insert_stmt = $pdo->prepare("
             INSERT INTO wp_posts (post_title, post_name, post_content, post_status, post_type, post_author, post_date, post_date_gmt)
             VALUES (:title, :slug, '', :status, 'product', 1, NOW(), NOW())
         ");
-        $insert_stmt->execute([':title' => $title, ':slug' => $slug,':status' => $status]);
+        $insert_stmt->execute([':title' => $title, ':slug' => $slug, ':status' => $status]);
         $product_id = $pdo->lastInsertId();
 
         if ($product_id) {
