@@ -86,6 +86,12 @@ function update_product_meta($pdo, $product_id, $meta_key, $meta_value) {
     }
 }
 
+function sanitize_title($title) {
+    $title = strtolower($title); // تبدیل به حروف کوچک
+    $title = preg_replace('/[^a-z0-9\s-]/', '', $title); // حذف کاراکترهای غیرمجاز
+    $title = trim(preg_replace('/[\s-]+/', '-', $title)); // جایگزینی فاصله‌ها و خط تیره‌ها با یک خط تیره
+    return $title;
+}
 
 /**
  * دریافت یا ایجاد دسته‌بندی
@@ -128,3 +134,4 @@ function set_product_categories($pdo, $product_id, $category_ids, $append = fals
         $stmt->execute([':object_id' => $product_id, ':term_taxonomy_id' => $category_id]);
     }
 }
+
