@@ -29,7 +29,7 @@ if (file_exists($page_file)) {
 $per_page = 100;
 
 // URL API برای دریافت اولین صفحه
-$api_url =  BASE_URL . "products?page={$page}&per_page={$per_page}";
+$api_url = BASE_URL . "products?page={$page}&per_page={$per_page}";
 
 // دریافت داده‌ها از API
 $response = file_get_contents($api_url);
@@ -61,6 +61,14 @@ if ($current_page > $total_pages) {
     exit;
 }
 
+function sanitize_title($title)
+{
+    $title = strtolower($title); // تبدیل به حروف کوچک
+    $title = preg_replace('/[^a-z0-9\s-]/', '', $title); // حذف کاراکترهای غیرمجاز
+    $title = trim(preg_replace('/[\s-]+/', '-', $title)); // جایگزینی فاصله‌ها و خط تیره‌ها با یک خط تیره
+    return $title;
+}
+
 // پردازش محصولات صفحه فعلی
 foreach ($data['products'] as $article) {
     $fldId = $article['A_Code'];
@@ -77,10 +85,11 @@ foreach ($data['products'] as $article) {
     $existing_product = $stmt->fetchColumn();
 
     if (!$existing_product) {
+        $slug = sanitize_title($title);
         // ایجاد محصول جدید
         $insert_stmt = $pdo->prepare("
-            INSERT INTO wp_posts (post_title, post_content, post_status, post_type, post_author, post_date, post_date_gmt)
-            VALUES (:title, '', :status, 'product', 1, NOW(), NOW())
+            INSERT INTO wp_posts (post_title, post_name, post_content, post_status, post_type, post_author, post_date, post_date_gmt)
+            VALUES (:title, :slug, '', :status, 'product', 1, NOW(), NOW())
         ");
         $insert_stmt->execute([':title' => $title, ':status' => $status]);
         $product_id = $pdo->lastInsertId();
@@ -90,10 +99,12 @@ foreach ($data['products'] as $article) {
             $meta_data = [
                 '_regular_price' => $price,
                 '_sale_price' => $offPrice,
+                '_price' => $offPrice ?: $price,
                 '_stock' => $stock,
                 '_A_Code' => $fldId,
                 '_fldC_Kala' => $fldC_Kala,
                 '_visibility' => 'visible',
+                
             ];
             foreach ($meta_data as $meta_key => $meta_value) {
                 $pdo->prepare("INSERT INTO wp_postmeta (post_id, meta_key, meta_value) VALUES (:post_id, :meta_key, :meta_value)")
