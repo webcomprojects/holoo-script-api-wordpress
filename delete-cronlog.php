@@ -1,6 +1,6 @@
 <?php
 
-$cron_file_path = dirname(__FILE__) . '/../cron.job';
+$cron_file_path = dirname(__FILE__) . '/../cron.log';
 
 if (file_exists($cron_file_path)) {
     // تلاش برای حذف فایل
