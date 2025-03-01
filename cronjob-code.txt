@@ -1,6 +1,3 @@
 *	*	*	*	*  (   /usr/local/bin/php /home3/axijrtzi/holoo-client.webcomcoai.com/holoo/UploadCategory.php    &&    /usr/local/bin/php /home3/axijrtzi/holoo-client.webcomcoai.com/holoo/InsertProducts.php ) >> /home3/axijrtzi/holoo-client.webcomcoai.com/cron.log 2>&1
 
-
-
-
 0	0	*	*	*	/usr/local/bin/php /home3/axijrtzi/holoo-client.webcomcoai.com/holoo/delete-cronlog.php >> /home3/axijrtzi/holoo-client.webcomcoai.com/cron.log 2>&1
