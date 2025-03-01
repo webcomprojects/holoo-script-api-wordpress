@@ -56,7 +56,7 @@ for ($i = $import_offset; $i < $total_items; $i++) {
             if ((microtime(true) - $start_time) >= $allowed_time) {
                 update_option('my_category_import_offset', $i);
                 echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. لطفاً برای ادامه اجرای اسکریپت دوباره اجرا کنید.";
-                echo "/n";
+                echo "\n";
                 exit;
             }
             $sub_name = $sub['S_groupname'];
@@ -98,7 +98,7 @@ for ($i = $import_offset; $i < $total_items; $i++) {
     // بررسی زمان: اگر زمان سپری شده به مقدار مجاز نزدیک شد، خروج از حلقه
     if ((microtime(true) - $start_time) >= $allowed_time) {
         echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. تا دسته‌بندی شماره " . ($i + 1) . " پردازش شده است. لطفاً برای ادامه مجدد اسکریپت دوباره اجرا کنید.";
-        echo "/n";
+        echo "\n";
         exit;
     }
 }
@@ -106,4 +106,4 @@ for ($i = $import_offset; $i < $total_items; $i++) {
 // در صورت اتمام پردازش همه دسته‌بندی‌ها، offset حذف یا ریست می‌شود.
 delete_option('my_category_import_offset');
 echo "دسته‌بندی‌های ووکامرس با موفقیت ثبت شدند.";
-echo "/n";
+echo "\n";
