@@ -1,11 +1,10 @@
 <?php
-die;
 require_once 'constant.php';
 require_once(dirname(__FILE__) . '/../wp-config.php');
 global $wpdb;
 
-$max_execution_time = 30; 
-$buffer_time = 5; 
+$max_execution_time = MAX_EXECUTION_TIME; 
+$buffer_time = BUFFER_TIME; 
 $allowed_time = $max_execution_time - $buffer_time;
 $start_time = microtime(true);
 
@@ -24,11 +23,19 @@ for ($i = $import_offset; $i < $total_items; $i++) {
     $name = $category['M_groupname'];
     $slug = sanitize_title($name);
 
-    $existing_term = term_exists($name, 'product_cat');
-    if ($existing_term) {
-        $term_id = $existing_term['term_id'];
-    } else {
+    // بررسی وجود دسته بندی با تابع ناحساس حروف بزرگ/کوچک
+    $existing_term_id = $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT term_id FROM $wpdb->terms 
+             WHERE taxonomy = %s AND LOWER(name) = LOWER(%s)",
+            'product_cat',
+            $name
+        )
+    );
 
+    if ($existing_term_id) {
+        $term_id = $existing_term_id;
+    } else {
         $result = wp_insert_term($name, 'product_cat', [
             'slug' => $slug,
             'description' => 'کد دسته: ' . $category['M_groupcode'],
@@ -46,12 +53,13 @@ for ($i = $import_offset; $i < $total_items; $i++) {
         foreach ($category['sub_categories'] as $sub) {
             if ((microtime(true) - $start_time) >= $allowed_time) {
                 update_option('my_category_import_offset', $i);
-                echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. لطفاً برای ادامه اجرای اسکریپت دوباره اجرا کنید.";
-                echo "\n";
+                echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. لطفاً برای ادامه اجرا دوباره اقدام کنید.\n";
                 exit;
             }
             $sub_name = $sub['S_groupname'];
             $sub_slug = sanitize_title($sub_name);
+
+            // بررسی وجود زیردسته بندی با تابع ناحساس حروف بزرگ/کوچک
             $child_terms = get_terms([
                 'taxonomy' => 'product_cat',
                 'parent' => $term_id,
@@ -76,7 +84,7 @@ for ($i = $import_offset; $i < $total_items; $i++) {
                 'parent' => $term_id
             ]);
             if (is_wp_error($sub_result)) {
-                error_log("خطا در ایجاد زیر دسته '$sub_name': " . $sub_result->get_error_message());
+                error_log("خطا در ایجاد زیردسته '$sub_name': " . $sub_result->get_error_message());
             }
         }
     }
@@ -84,12 +92,10 @@ for ($i = $import_offset; $i < $total_items; $i++) {
     update_option('my_category_import_offset', $i + 1);
 
     if ((microtime(true) - $start_time) >= $allowed_time) {
-        echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. تا دسته‌بندی شماره " . ($i + 1) . " پردازش شده است. لطفاً برای ادامه مجدد اسکریپت دوباره اجرا کنید.";
-        echo "\n";
+        echo "⏳ زمان اجرای اسکریپت به پایان نزدیک شد. تا دسته شماره " . ($i + 1) . " پردازش شده است.\n";
         exit;
     }
 }
 
 delete_option('my_category_import_offset');
-echo "دسته‌بندی‌های ووکامرس با موفقیت ثبت شدند.";
-echo "\n";
+echo "✅ تمام دسته‌بندی‌ها با موفقیت ایمپورت شدند.\n";
