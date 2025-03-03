@@ -1,6 +1,5 @@
 <?php
-
-// die;
+die;
 require_once 'constant.php';
 require_once 'db.php';
 
@@ -11,8 +10,8 @@ try {
     die("❌ خطای اتصال به پایگاه داده: " . $e->getMessage());
 }
 
-$max_execution_time = 30;
-$buffer_time = 5;
+$max_execution_time = MAX_EXECUTION_TIME;
+$buffer_time = BUFFER_TIME;
 $allowed_time = $max_execution_time - $buffer_time;
 $start_time = microtime(true);
 
@@ -25,7 +24,7 @@ if (file_exists($page_file)) {
     $page = 1;
 }
 
-$per_page = 100;
+$per_page = PER_PAGE;
 
 $api_url = BASE_URL . "products?page={$page}&per_page={$per_page}";
 
