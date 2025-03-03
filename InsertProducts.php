@@ -48,7 +48,7 @@ $current_page = $data['pagination']['current_page'];
 $total_pages = $data['pagination']['total_pages'];
 
 if ($current_page > $total_pages) {
-    unlink($page_file); 
+    unlink($page_file);
     echo "✅ همه محصولات وارد شدند!";
     echo "\n";
     exit;
@@ -83,12 +83,19 @@ foreach ($data['products'] as $article) {
     $existing_product = $stmt->fetchColumn();
 
     if (!$existing_product) {
+        $now = date('Y-m-d H:i:s');
         $slug = slug_generate($title);
         $insert_stmt = $pdo->prepare("
             INSERT INTO wp_posts (post_title, post_name, post_content, post_status, post_type, post_author, post_date, post_date_gmt)
-            VALUES (:title, :slug, '', :status, 'product', 1, NOW(), NOW())
+            VALUES (:title, :slug, '', :status, 'product', 1, :post_date, :post_date_gmt)
         ");
-        $insert_stmt->execute([':title' => $title, ':slug' => $slug, ':status' => $status]);
+        $insert_stmt->execute([
+            ':title' => $title,
+            ':slug' => $slug,
+            ':status' => $status,
+            ':post_date' => $now,
+            ':post_date_gmt' => gmdate('Y-m-d H:i:s')
+        ]);
         $product_id = $pdo->lastInsertId();
 
         if ($product_id) {
