@@ -1,31 +1,25 @@
 <?php
-require_once 'constant.php';
-require_once 'db.php';
 
-try {
-    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("❌ خطای اتصال به پایگاه داده: " . $e->getMessage());
-}
+require_once(dirname(__FILE__) . '/../wp-load.php');
+
+require_once 'constant.php'; 
 
 $max_execution_time = MAX_EXECUTION_TIME;
-$buffer_time = BUFFER_TIME;
-$allowed_time = $max_execution_time - $buffer_time;
-$start_time = microtime(true);
+$buffer_time        = BUFFER_TIME;
+$allowed_time       = $max_execution_time - $buffer_time;
+$start_time         = microtime(true);
 
 $page_file = __DIR__ . '/my_product_import_page.txt';
 
 if (file_exists($page_file)) {
     $content = file_get_contents($page_file);
-    $page = filter_var($content, FILTER_VALIDATE_INT, ["options" => ["default" => 1, "min_range" => 1]]);
+    $page    = filter_var($content, FILTER_VALIDATE_INT, ["options" => ["default" => 1, "min_range" => 1]]);
 } else {
     $page = 1;
 }
 
 $per_page = PER_PAGE;
-
-$api_url = BASE_URL . "products?page={$page}&per_page={$per_page}";
+$api_url  = BASE_URL . "products?page={$page}&per_page={$per_page}";
 
 $response = file_get_contents($api_url);
 if ($response === false) {
@@ -45,123 +39,99 @@ if (!isset($data['pagination']) || !isset($data['products'])) {
 }
 
 $current_page = $data['pagination']['current_page'];
-$total_pages = $data['pagination']['total_pages'];
+$total_pages  = $data['pagination']['total_pages'];
 
 if ($current_page > $total_pages) {
     unlink($page_file);
-    echo "✅ همه محصولات وارد شدند!";
-    echo "\n";
+    echo "✅ همه محصولات وارد شدند!\n";
     exit;
 }
 
-function slug_generate($title)
-{
-    if ($title === null) {
-        return '';
-    }
-    $title = mb_strtolower($title, 'UTF-8');
-    $title = preg_replace(
-        '/[^a-z0-9\x{0600}-\x{06FF}\x{06F0}-\x{06F9}\s-]/u',
-        '',
-        $title
-    );
-    $title = trim(preg_replace('/[\s-]+/u', '-', $title), '-');
-    return $title ?: '';
-}
-
 foreach ($data['products'] as $article) {
-    $fldId = $article['A_Code'];
-    $fldC_Kala = $article['A_Code_C'];
-    $title = $article['A_Name'];
-    $price = $article['Sel_Price'] ?: 0;
-    $offPrice = ($article['PriceTakhfif'] > 0) ? $article['PriceTakhfif'] : $price;
-    $stock = $article['Exist'] ?: 0;
-    $status = ($article['IsActive']) ? 'publish' : 'draft';
+    $fldId       = $article['A_Code'];
+    $fldC_Kala   = $article['A_Code_C'];
+    $title       = $article['A_Name'];
+    $price       = !empty($article['Sel_Price']) ? $article['Sel_Price'] : 0;
+    $offPrice    = ($article['PriceTakhfif'] > 0) ? $article['PriceTakhfif'] : $price;
+    $stock       = !empty($article['Exist']) ? $article['Exist'] : 0;
+    $status      = ($article['IsActive']) ? 'publish' : 'draft';
 
-    $stmt = $pdo->prepare("SELECT ID FROM wp_posts WHERE post_type = 'product' AND post_title = :title LIMIT 1");
-    $stmt->execute([':title' => $title]);
-    $existing_product = $stmt->fetchColumn();
-
+    $existing_product = get_page_by_title($title, OBJECT, 'product');
+    
     if (!$existing_product) {
-        $now = date('Y-m-d H:i:s');
-        $slug = slug_generate($title);
-        $insert_stmt = $pdo->prepare("
-            INSERT INTO wp_posts (post_title, post_name, post_content, post_status, post_type, post_author, post_date, post_date_gmt)
-            VALUES (:title, :slug, '', :status, 'product', 1, :post_date, :post_date_gmt)
-        ");
-        $insert_stmt->execute([
-            ':title' => $title,
-            ':slug' => $slug,
-            ':status' => $status,
-            ':post_date' => $now,
-            ':post_date_gmt' => gmdate('Y-m-d H:i:s')
-        ]);
-        $product_id = $pdo->lastInsertId();
-
-        if ($product_id) {
-            $meta_data = [
+        $post_data = array(
+            'post_title'    => $title,
+            'post_name'     => sanitize_title($title),
+            'post_content'  => '',
+            'post_status'   => $status,
+            'post_type'     => 'product',
+            'post_author'   => 1,
+            'post_date'     => current_time('mysql'),
+            'post_date_gmt' => current_time('mysql', 1)
+        );
+        $product_id = wp_insert_post($post_data);
+        
+        if ($product_id && !is_wp_error($product_id)) {
+            $meta_data = array(
                 '_regular_price' => $price,
-                '_sale_price' => $offPrice,
-                '_price' => $offPrice ?: $price,
-                '_stock' => $stock,
-                '_A_Code' => $fldId,
-                '_fldC_Kala' => $fldC_Kala,
-                '_visibility' => 'visible',
-
-            ];
+                '_sale_price'    => $offPrice,
+                '_price'         => ($offPrice ? $offPrice : $price),
+                '_stock'         => $stock,
+                '_A_Code'        => $fldId,
+                '_fldC_Kala'     => $fldC_Kala,
+                '_visibility'    => 'visible'
+            );
             foreach ($meta_data as $meta_key => $meta_value) {
-                $pdo->prepare("INSERT INTO wp_postmeta (post_id, meta_key, meta_value) VALUES (:post_id, :meta_key, :meta_value)")
-                    ->execute([':post_id' => $product_id, ':meta_key' => $meta_key, ':meta_value' => $meta_value]);
+                update_post_meta($product_id, $meta_key, $meta_value);
             }
-
-            $main_category_name = $article['Main_Category']['M_groupname'] ?? 'دسته‌بندی نامشخص';
-            $sub_category_name = $article['Sub_Category']['S_groupname'] ?? null;
-
-            $main_category_slug = strtolower(str_replace(' ', '-', $main_category_name));
-            $main_category_stmt = $pdo->prepare("SELECT term_id FROM wp_terms WHERE name = :name");
-            $main_category_stmt->execute([':name' => $main_category_name]);
-            $main_category_id = $main_category_stmt->fetchColumn();
-
-            if (!$main_category_id) {
-                $pdo->prepare("INSERT INTO wp_terms (name, slug) VALUES (:name, :slug)")
-                    ->execute([':name' => $main_category_name, ':slug' => $main_category_slug]);
-                $main_category_id = $pdo->lastInsertId();
-                $pdo->prepare("INSERT INTO wp_term_taxonomy (term_id, taxonomy, parent) VALUES (:term_id, 'product_cat', 0)")
-                    ->execute([':term_id' => $main_category_id]);
-            }
-
-            if ($sub_category_name) {
-                $sub_category_slug = strtolower(str_replace(' ', '-', $sub_category_name));
-                $sub_category_stmt = $pdo->prepare("SELECT term_id FROM wp_terms WHERE name = :name");
-                $sub_category_stmt->execute([':name' => $sub_category_name]);
-                $sub_category_id = $sub_category_stmt->fetchColumn();
-
-                if (!$sub_category_id) {
-                    $pdo->prepare("INSERT INTO wp_terms (name, slug) VALUES (:name, :slug)")
-                        ->execute([':name' => $sub_category_name, ':slug' => $sub_category_slug]);
-                    $sub_category_id = $pdo->lastInsertId();
-                    $pdo->prepare("INSERT INTO wp_term_taxonomy (term_id, taxonomy, parent) VALUES (:term_id, 'product_cat', :parent)")
-                        ->execute([':term_id' => $sub_category_id, ':parent' => $main_category_id]);
+            
+            $main_category_name = isset($article['Main_Category']['M_groupname']) ? $article['Main_Category']['M_groupname'] : 'دسته‌بندی نامشخص';
+            $sub_category_name  = isset($article['Sub_Category']['S_groupname']) ? $article['Sub_Category']['S_groupname'] : null;
+            
+            $main_category = term_exists($main_category_name, 'product_cat');
+            if (!$main_category) {
+                $main_category = wp_insert_term($main_category_name, 'product_cat', array(
+                    'slug'   => sanitize_title($main_category_name),
+                    'parent' => 0
+                ));
+                if (!is_wp_error($main_category)) {
+                    $main_category_id = $main_category['term_id'];
+                } else {
+                    $main_category_id = 0;
                 }
-
-                $pdo->prepare("INSERT INTO wp_term_relationships (object_id, term_taxonomy_id) VALUES (:object_id, :term_taxonomy_id)")
-                    ->execute([':object_id' => $product_id, ':term_taxonomy_id' => $sub_category_id]);
             } else {
-                $pdo->prepare("INSERT INTO wp_term_relationships (object_id, term_taxonomy_id) VALUES (:object_id, :term_taxonomy_id)")
-                    ->execute([':object_id' => $product_id, ':term_taxonomy_id' => $main_category_id]);
+                $main_category_id = $main_category['term_id'];
+            }
+            
+            if ($sub_category_name) {
+                $sub_category = term_exists($sub_category_name, 'product_cat');
+                if (!$sub_category) {
+                    $sub_category = wp_insert_term($sub_category_name, 'product_cat', array(
+                        'slug'   => sanitize_title($sub_category_name),
+                        'parent' => $main_category_id
+                    ));
+                    if (!is_wp_error($sub_category)) {
+                        $sub_category_id = $sub_category['term_id'];
+                    } else {
+                        $sub_category_id = 0;
+                    }
+                } else {
+                    $sub_category_id = $sub_category['term_id'];
+                }
+                wp_set_object_terms($product_id, intval($sub_category_id), 'product_cat');
+            } else {
+                wp_set_object_terms($product_id, intval($main_category_id), 'product_cat');
             }
         }
     }
-
+    
     if ((microtime(true) - $start_time) >= $allowed_time) {
         file_put_contents($page_file, $page);
-        echo "⏳ زمان اجرا تمام شد. پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
-        echo "\n";
+        echo "⏳ زمان اجرا تمام شد. پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.\n";
         exit;
     }
 }
 
 $page++;
 file_put_contents($page_file, $page);
-echo "پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.";
-echo "\n";
+echo "پردازش تا صفحه {$page} انجام شد. لطفاً مجدداً اجرا کنید.\n";
