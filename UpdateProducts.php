@@ -50,6 +50,7 @@ foreach ($data as $article) {
 
         update_post_meta($product_id, '_regular_price', $price);
         update_post_meta($product_id, '_sale_price', $offPrice);
+        update_post_meta($product_id, '_price', $offPrice);
         update_post_meta($product_id, '_stock', $stock);
         update_post_meta($product_id, '_stock_status', ($stock > 0 ? 'instock' : 'outofstock'));
 
