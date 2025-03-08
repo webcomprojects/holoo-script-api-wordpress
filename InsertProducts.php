@@ -79,6 +79,7 @@ foreach ($data['products'] as $article) {
                 '_price' => ($offPrice ? $offPrice : $price),
                 '_stock' => $stock,
                 '_A_Code' => $fldId,
+                '_vahed' => $article['vahed'],
                 '_fldC_Kala' => $fldC_Kala,
                 '_visibility' => 'visible',
             );

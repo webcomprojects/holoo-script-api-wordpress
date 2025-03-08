@@ -10,14 +10,15 @@
  */
 
 // جلوگیری از بارگذاری مستقیم فایل
-if ( ! defined( 'ABSPATH' ) ) {
+if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
 require_once 'constant.php';
 
 // تابع برای ارسال اطلاعات مشتری به حسابداری
-function send_customer_to_accounting($order_id) {
+function send_customer_to_accounting($order_id)
+{
     $order = wc_get_order($order_id);
     $user = $order->get_user();
     $mobile = get_user_meta($user->ID, 'billing_phone', true);
@@ -26,31 +27,30 @@ function send_customer_to_accounting($order_id) {
         return;
     }
 
-    // چک می‌کنیم که آیا مشتری قبلاً در وردپرس ثبت شده است یا نه
-    if (!is_customer_exist_in_wordpress($mobile)) {
-        // اطلاعات مشتری برای ارسال به API
-        $ostan = $order->get_billing_state();
-        $city = $order->get_billing_city();
-        $address = 'استان: ' . $ostan . ' شهر: ' . $city . ' | ' . $order->get_billing_address_1() . ' کدپستی: ' . $order->get_shipping_postcode();
 
-        $formParams = [
-            'phoneNumber' => $mobile,
-            'fullName' => $user->get_full_name(),
-            'address' => $address,
-            'createDate' => time(),
-            'fldFeeTip' => ''
-        ];
+    // اطلاعات مشتری برای ارسال به API
+    $billing_first_name = $order->get_billing_first_name();
+    $billing_last_name = $order->get_billing_last_name();
+    $ostan = $order->get_billing_state();
+    $city = $order->get_billing_city();
+    $address = 'استان: ' . $ostan . ' شهر: ' . $city . ' | ' . $order->get_billing_address_1() . ' کدپستی: ' . $order->get_shipping_postcode();
 
-        $url = BASE_URL . 'customer/register';
-        $response = send_post_request($url, $formParams);
-    } else {
-        // مشتری قبلاً در وردپرس ثبت شده است، نیاز به ارسال اطلاعات جدید نیست
-        return;
-    }
+    $formParams = [
+        'phoneNumber' => $mobile,
+        'fullName' => $billing_first_name . ' ' . $billing_last_name,
+        'address' => $address,
+        'createDate' => time(),
+        'fldFeeTip' => ''
+    ];
+
+    $url = BASE_URL_PLUGIN_SENDORDER . 'customer/register';
+    $response = send_post_request($url, $formParams);
+
 }
 
 // تابع برای چک کردن اینکه آیا مشتری قبلاً در دیتابیس وردپرس موجود است یا نه
-function is_customer_exist_in_wordpress($mobile) {
+function is_customer_exist_in_wordpress($mobile)
+{
     // چک می‌کنیم که آیا مشتری با شماره موبایل یا نام کاربری مشخص در وردپرس موجود است یا نه
     $user = get_user_by('login', $mobile);  // جستجو بر اساس نام کاربری (موبایل در اینجا نام کاربری است)
 
@@ -74,17 +74,18 @@ function is_customer_exist_in_wordpress($mobile) {
 }
 
 // تابع برای ارسال درخواست POST با استفاده از file_get_contents
-function send_post_request($url, $data) {
+function send_post_request($url, $data)
+{
     $options = [
         'http' => [
-            'method'  => 'POST',
-            'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
+            'method' => 'POST',
+            'header' => "Content-type: application/x-www-form-urlencoded\r\n",
             'content' => http_build_query($data),
             'timeout' => 60
         ]
     ];
 
-    $context  = stream_context_create($options);
+    $context = stream_context_create($options);
     $response = @file_get_contents($url, false, $context);
 
     if ($response === FALSE) {
@@ -96,14 +97,16 @@ function send_post_request($url, $data) {
 }
 
 // تابع برای دریافت شناسه تراکنش
-function get_transaction_id($order) {
+function get_transaction_id($order)
+{
     // فرض بر این است که شما یک متد برای دریافت شناسه تراکنش در نظر دارید
     // در غیر این صورت می‌توانید آن را بر اساس نیاز خود تغییر دهید
     return $order->get_meta('transaction_id');
 }
 
 // تابع برای ارسال سفارش به حسابداری
-function send_order_to_accounting($order_id) {
+function send_order_to_accounting($order_id)
+{
     $order = wc_get_order($order_id);
     // چک می‌کنیم که آیا سفارش قبلاً به حسابداری ارسال شده است یا نه
     if ($order->get_meta('_send_to_accounting') == 0 or empty($order->get_meta('_send_to_accounting'))) {
@@ -114,7 +117,7 @@ function send_order_to_accounting($order_id) {
         $address = 'استان: ' . $ostan . ' شهر: ' . $city . ' | ' . $order->get_billing_address_1() . ' کدپستی: ' . $order->get_shipping_postcode();
 
         $FldTozihat = $order->get_meta('description') . ' هزینه ارسال: ' . $order->get_shipping_total();
-        
+
         $formParams = [
             'orderVal.OrderTitle.FldMobile' => $order->get_billing_phone(),
             'orderVal.OrderTitle.FldTotalFaktor' => $order->get_total() - $order->get_shipping_total(),
@@ -129,11 +132,11 @@ function send_order_to_accounting($order_id) {
         foreach ($order->get_items() as $itemRow => $item) {
             if ($item->get_type() === 'line_item') {
                 $product = $item->get_product();
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldC_Kala'] = $product->get_meta('fldC_Kala');
+                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldC_Kala'] = $product->get_meta('_A_Code');
                 $formParams['orderVal.OrderDetails[' . $itemRow . '].FldN_Kala'] = $product->get_name();
                 $formParams['orderVal.OrderDetails[' . $itemRow . '].FldFee'] = $item->get_total();
                 $formParams['orderVal.OrderDetails[' . $itemRow . '].FldFeeBadAzTakhfif'] = $item->get_total();
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldN_Vahed'] = $product->get_meta('vahed') ?: 'وجود ندارد';
+                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldN_Vahed'] = $product->get_meta('_vahed') ?: 'وجود ندارد';
                 $formParams['orderVal.OrderDetails[' . $itemRow . '].FldN_Vahed_Kol'] = $product->get_meta('vahed_kol');
                 $formParams['orderVal.OrderDetails[' . $itemRow . '].FldTedad'] = $item->get_quantity();
                 $formParams['orderVal.OrderDetails[' . $itemRow . '].FldTedadKol'] = $item->get_quantity();
@@ -145,7 +148,7 @@ function send_order_to_accounting($order_id) {
         }
 
 
-        $url = BASE_URL . 'orders/save';
+        $url = BASE_URL_PLUGIN_SENDORDER . 'orders/save';
         $response = send_post_request($url, $formParams);
 
         // به‌روزرسانی وضعیت ارسال به حسابداری
@@ -155,7 +158,7 @@ function send_order_to_accounting($order_id) {
 }
 
 // استفاده از توابع در هر لحظه
-add_action('woocommerce_order_status_completed', function($order_id) {
+add_action('woocommerce_order_status_completed', function ($order_id) {
     send_customer_to_accounting($order_id);
     send_order_to_accounting($order_id);
 });
