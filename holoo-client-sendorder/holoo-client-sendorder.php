@@ -120,30 +120,32 @@ function send_order_to_accounting($order_id)
 
         $formParams = [
             'orderVal.OrderTitle.FldMobile' => $order->get_billing_phone(),
-            'orderVal.OrderTitle.FldTotalFaktor' => $order->get_total() - $order->get_shipping_total(),
-            'orderVal.OrderTitle.FldTakhfifVizhe' => 0,
+            'orderVal.OrderTitle.FldTotalFaktor' => $order->get_total(),
+            'orderVal.OrderTitle.FldTakhfifVizhe' => $order->get_discount_total(),
             'orderVal.OrderTitle.FldTozihFaktor' => $FldTozihat,
             'orderVal.OrderTitle.FldAddress' => $address,
             'orderVal.OrderTitle.FldPayId' => get_transaction_id($order),
         ];
 
-
+        $i = 0;
         // اضافه کردن آیتم‌های سفارش
-        foreach ($order->get_items() as $itemRow => $item) {
+        $items = $order->get_items();
+        foreach ($items as $item_id => $item) {
             if ($item->get_type() === 'line_item') {
                 $product = $item->get_product();
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldC_Kala'] = $product->get_meta('_A_Code');
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldN_Kala'] = $product->get_name();
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldFee'] = $item->get_total();
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldFeeBadAzTakhfif'] = $item->get_total();
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldN_Vahed'] = $product->get_meta('_vahed') ?: 'وجود ندارد';
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldN_Vahed_Kol'] = $product->get_meta('vahed_kol');
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldTedad'] = $item->get_quantity();
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldTedadKol'] = $item->get_quantity();
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldTedadDarKarton'] = 0;
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldTozihat'] = $order->get_meta('description');
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].FldACode_C'] = $product->get_meta('_A_Code');
-                $formParams['orderVal.OrderDetails[' . $itemRow . '].A_Code'] = $product->get_meta('_A_Code');
+                $formParams['orderVal.OrderDetails[' . $i . '].FldC_Kala'] = $product->get_meta('_A_Code');
+                $formParams['orderVal.OrderDetails[' . $i . '].FldN_Kala'] = $product->get_name();
+                $formParams['orderVal.OrderDetails[' . $i . '].FldFee'] = $item->get_subtotal();
+                $formParams['orderVal.OrderDetails[' . $i . '].FldFeeBadAzTakhfif'] = $item->get_total();
+                $formParams['orderVal.OrderDetails[' . $i . '].FldN_Vahed'] = $product->get_meta('_vahed') ?: 'وجود ندارد';
+                $formParams['orderVal.OrderDetails[' . $i . '].FldN_Vahed_Kol'] = $product->get_meta('vahed_kol');
+                $formParams['orderVal.OrderDetails[' . $i . '].FldTedad'] = $item->get_quantity();
+                $formParams['orderVal.OrderDetails[' . $i . '].FldTedadKol'] = $item->get_quantity();
+                $formParams['orderVal.OrderDetails[' . $i . '].FldTedadDarKarton'] = $product->get_meta('_tedad_dar_karton') ?: 0;
+                $formParams['orderVal.OrderDetails[' . $i . '].FldTozihat'] = $item->get_name();
+                $formParams['orderVal.OrderDetails[' . $i . '].FldACode_C'] = $product->get_meta('_A_Code');
+                $formParams['orderVal.OrderDetails[' . $i . '].A_Code'] = $product->get_meta('_A_Code');
+                $i++;
             }
         }
 
