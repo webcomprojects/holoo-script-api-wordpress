@@ -1,12 +1,11 @@
 <?php
 /**
- * Plugin Name: Send Order To Accounting
- * Plugin URI: https://example.com
- * Description: This plugin sends customer and order information to the accounting system after an order is completed in WooCommerce.
+ * Plugin Name: ارسال سفارشات به نرم افزار هلو
+ * Plugin URI: https://webcomco.com
+ * Description: این افزونه، اطلاعات مشتری و سفارش را پس از تکمیل یک سفارش در WooCommerce به سیستم حسابداری ارسال می‌کند.
  * Version: 1.0.0
- * Author: Your Name
- * Author URI: https://example.com
- * License: GPL2
+ * Author: احسان باوقار
+ * Author URI: https://webcomco.com
  */
 
 // جلوگیری از بارگذاری مستقیم فایل
